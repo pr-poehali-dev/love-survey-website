@@ -8,13 +8,71 @@ const LoveQuiz = () => {
   const [showHappyAnimation, setShowHappyAnimation] = useState(false);
   const [showSadScreen, setShowSadScreen] = useState(false);
   const [showScareScreen, setShowScareScreen] = useState(false);
+  const [showFinalCelebration, setShowFinalCelebration] = useState(false);
   const [hearts, setHearts] = useState<Array<{ id: number; delay: number }>>([]);
+  const [answeredYes, setAnsweredYes] = useState<boolean[]>([false, false, false]);
 
   const questions = [
     "Ты меня любишь?",
     "Ты меня ценишь?", 
     "Хочешь быть со мной?"
   ];
+
+  // Звуковые эффекты
+  const playSound = (type: 'yes' | 'no' | 'scare' | 'celebration') => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      switch (type) {
+        case 'yes':
+          oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime);
+          oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1);
+          oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2);
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.5);
+          break;
+        case 'no':
+          oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
+          oscillator.frequency.setValueAtTime(196, audioContext.currentTime + 0.3);
+          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.6);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.6);
+          break;
+        case 'scare':
+          oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
+          oscillator.type = 'sawtooth';
+          gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 1);
+          break;
+        case 'celebration':
+          const notes = [523.25, 659.25, 783.99, 1046.50];
+          notes.forEach((freq, i) => {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.frequency.setValueAtTime(freq, audioContext.currentTime + i * 0.15);
+            gain.gain.setValueAtTime(0.3, audioContext.currentTime + i * 0.15);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + i * 0.15 + 0.3);
+            osc.start(audioContext.currentTime + i * 0.15);
+            osc.stop(audioContext.currentTime + i * 0.15 + 0.3);
+          });
+          break;
+      }
+    } catch (error) {
+      console.log('Audio не поддерживается');
+    }
+  };
 
   const generateHearts = () => {
     const newHearts = Array.from({ length: 15 }, (_, i) => ({
@@ -25,8 +83,14 @@ const LoveQuiz = () => {
   };
 
   const handleYesClick = () => {
+    playSound('yes');
     setShowHappyAnimation(true);
     generateHearts();
+    
+    // Отмечаем текущий вопрос как отвеченный положительно
+    const newAnsweredYes = [...answeredYes];
+    newAnsweredYes[currentQuestion] = true;
+    setAnsweredYes(newAnsweredYes);
     
     setTimeout(() => {
       setShowHappyAnimation(false);
@@ -34,19 +98,22 @@ const LoveQuiz = () => {
       if (currentQuestion < questions.length - 1) {
         setCurrentQuestion(currentQuestion + 1);
       } else {
-        // Все вопросы отвечены положительно
-        setCurrentQuestion(0);
+        // Все вопросы отвечены положительно - показываем финальную концовку
+        setShowFinalCelebration(true);
+        playSound('celebration');
       }
     }, 3000);
   };
 
   const handleNoClick = () => {
+    playSound('no');
     setShowSadScreen(true);
   };
 
   const handleDefinitelyNo = () => {
     setShowSadScreen(false);
     setTimeout(() => {
+      playSound('scare');
       setShowScareScreen(true);
     }, 1000);
   };
@@ -61,8 +128,67 @@ const LoveQuiz = () => {
     setShowHappyAnimation(false);
     setShowSadScreen(false);
     setShowScareScreen(false);
+    setShowFinalCelebration(false);
     setHearts([]);
+    setAnsweredYes([false, false, false]);
   };
+
+  if (showFinalCelebration) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-200 via-pink-200 to-purple-300 flex items-center justify-center relative overflow-hidden">
+        {/* Праздничные эффекты */}
+        <div className="absolute inset-0 pointer-events-none">
+          {Array.from({ length: 50 }, (_, i) => (
+            <div
+              key={i}
+              className="absolute animate-heart-float"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                animationDelay: `${Math.random() * 5}s`,
+                animationDuration: `${3 + Math.random() * 2}s`,
+                fontSize: `${20 + Math.random() * 40}px`
+              }}
+            >
+              {['❤️', '💕', '💖', '💗', '💘', '💙', '💚', '💛', '💜', '🧡', '🤍', '🖤', '💝', '💟', '❣️'][Math.floor(Math.random() * 15)]}
+            </div>
+          ))}
+        </div>
+        
+        <div className="text-center z-10 animate-bounce-in">
+          <div className="text-8xl mb-6 animate-pulse">🎉✨🎊</div>
+          <h1 className="text-4xl md:text-7xl font-playfair text-pink-800 mb-6 animate-scale-in">
+            УРА! ТЫ ПРОШЕЛ ТЕСТ!
+          </h1>
+          <h2 className="text-2xl md:text-4xl font-lato text-purple-700 mb-8 animate-fade-in">
+            Теперь ты официально мой любимый! 💍
+          </h2>
+          
+          <div className="space-y-6 max-w-lg mx-auto">
+            <div className="bg-white/90 backdrop-blur-sm rounded-lg p-6 animate-scale-in">
+              <p className="text-xl font-lato text-gray-700 mb-4">
+                🏆 Поздравляю! Ты получаешь:
+              </p>
+              <ul className="text-lg font-lato text-left space-y-2">
+                <li>💋 Бесконечные поцелуи</li>
+                <li>🤗 Объятия по требованию</li>
+                <li>🍰 Домашние вкусняшки</li>
+                <li>🎮 Совместные игры</li>
+                <li>💤 Совместный сон</li>
+              </ul>
+            </div>
+            
+            <Button 
+              onClick={restartQuiz}
+              className="bg-pink-500 hover:bg-pink-600 text-white text-xl py-6 px-12 font-lato transform hover:scale-105 transition-all duration-200"
+            >
+              Пройти еще раз! 😄
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (showScareScreen) {
     return (
@@ -178,10 +304,16 @@ const LoveQuiz = () => {
             {questions.map((_, index) => (
               <div
                 key={index}
-                className={`w-3 h-3 rounded-full transition-colors ${
-                  index === currentQuestion ? 'bg-love-rose' : 'bg-gray-300'
+                className={`w-4 h-4 rounded-full transition-all duration-300 flex items-center justify-center ${
+                  answeredYes[index] 
+                    ? 'bg-green-500 text-white text-xs' 
+                    : index === currentQuestion 
+                    ? 'bg-love-rose animate-pulse' 
+                    : 'bg-gray-300'
                 }`}
-              />
+              >
+                {answeredYes[index] && '✓'}
+              </div>
             ))}
           </div>
         </Card>
